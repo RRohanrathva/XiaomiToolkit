@@ -1,0 +1,72 @@
+name: Build APK from ZIP
+
+on:
+  push:
+    branches: [ main, master ]
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Extract ZIP files
+        run: |
+          echo "Extracting XiaomiToolkit-Upload.zip..."
+          unzip -o XiaomiToolkit-Upload.zip
+          echo "Files after first extraction:"
+          ls -la
+          
+          if [ -d "XiaomiToolkit-Upload" ]; then
+            cd XiaomiToolkit-Upload
+            echo "Extracting inner XiaomiToolkit.zip..."
+            unzip -o XiaomiToolkit.zip
+            echo "Moving XiaomiToolkit folder contents..."
+            mv XiaomiToolkit/* ../
+            cd ..
+            rm -rf XiaomiToolkit-Upload
+          fi
+          
+          echo "Final directory structure:"
+          ls -la
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'temurin'
+          java-version: '17'
+          cache: 'gradle'
+
+      - name: Grant execute permission for gradlew
+        run: chmod +x gradlew
+
+      - name: Build Debug APK
+        run: ./gradlew assembleDebug --stacktrace
+
+      - name: Build Release APK
+        run: ./gradlew assembleRelease --stacktrace
+
+      - name: Upload Debug APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: app-debug
+          path: app/build/outputs/apk/debug/*.apk
+
+      - name: Upload Release APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: app-release
+          path: app/build/outputs/apk/release/*.apk
+
+      - name: Create Release on Tag
+        if: startsWith(github.ref, 'refs/tags/')
+        uses: softprops/action-gh-release@v1
+        with:
+          files: |
+            app/build/outputs/apk/release/*.apk
+            app/build/outputs/apk/debug/*.apk
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
