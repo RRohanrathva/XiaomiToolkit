@@ -12,40 +12,16 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
 
-      - name: Extract project files
+      - name: Extract ZIP
         run: |
-          echo "=== Extracting ZIP files ==="
-          
-          if [ -f "XiaomiToolkit-Upload.zip" ]; then
-            echo "Found XiaomiToolkit-Upload.zip"
-            unzip -q XiaomiToolkit-Upload.zip
-            
-            if [ -f "XiaomiToolkit-Upload/XiaomiToolkit.zip" ]; then
-              echo "Extracting inner ZIP..."
-              cd XiaomiToolkit-Upload
-              unzip -q XiaomiToolkit.zip
-              cd ..
-              
-              if [ -d "XiaomiToolkit-Upload/XiaomiToolkit" ]; then
-                echo "Moving project files..."
-                cp -r XiaomiToolkit-Upload/XiaomiToolkit/* .
-              fi
-            fi
-          elif [ -f "XiaomiToolkit.zip" ]; then
-            echo "Found XiaomiToolkit.zip directly"
+          if [ -f "XiaomiToolkit-Final.zip" ]; then
+            unzip -q XiaomiToolkit-Final.zip
+            cd XiaomiToolkit-Upload
             unzip -q XiaomiToolkit.zip
-            if [ -d "XiaomiToolkit" ]; then
-              cp -r XiaomiToolkit/* .
-            fi
+            mv XiaomiToolkit/* ../
+            cd ..
           fi
-          
-          echo "=== Final directory structure ==="
           ls -la
-          
-          if [ ! -f "gradlew" ]; then
-            echo "ERROR: gradlew not found!"
-            exit 1
-          fi
 
       - name: Set up JDK 17
         uses: actions/setup-java@v4
@@ -54,30 +30,13 @@ jobs:
           java-version: '17'
           cache: 'gradle'
 
-      - name: Make gradlew executable
-        run: chmod +x gradlew
-
-      - name: Build with Gradle
+      - name: Build APK
         run: |
-          ./gradlew assembleDebug --no-daemon --stacktrace
+          chmod +x gradlew
+          ./gradlew assembleDebug --no-daemon
 
-      - name: List APK files
-        if: always()
-        run: |
-          echo "=== Looking for APK files ==="
-          find . -name "*.apk" -type f || echo "No APK files found"
-
-      - name: Upload Debug APK
+      - name: Upload APK
         uses: actions/upload-artifact@v4
-        if: success()
         with:
           name: app-debug
           path: app/build/outputs/apk/debug/app-debug.apk
-
-      - name: Upload Release APK (if available)
-        uses: actions/upload-artifact@v4
-        if: success()
-        continue-on-error: true
-        with:
-          name: app-release
-          path: app/build/outputs/apk/release/app-release.apk
